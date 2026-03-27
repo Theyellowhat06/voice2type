@@ -1,0 +1,7 @@
+{
+  "hotkey": "ctrl+shift",
+  "model_size": "base",
+  "language": "en",
+  "device": "cpu",
+  "compute_type": "int8"
+}
