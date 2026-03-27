@@ -1,6 +1,6 @@
 #!/bin/bash
 # Remote installer for voice2type
-# Usage: curl -fsSL https://raw.githubusercontent.com/OWNER/voice2type/main/install-remote.sh | bash
+# Usage: curl -fsSL https://raw.githubusercontent.com/Theyellowhat06/voice2type/main/install-remote.sh | bash
 
 set -euo pipefail
 
@@ -57,6 +57,13 @@ fi
 echo "Installing dependencies..."
 "$INSTALL_DIR/.venv/bin/pip" install -q -r "$INSTALL_DIR/requirements.txt"
 
+# Build .app bundle
+echo "Building Voice2Type.app..."
+bash "$INSTALL_DIR/build-app.sh"
+
+APP_DIR="$INSTALL_DIR/Voice2Type.app"
+LAUNCHER="$APP_DIR/Contents/MacOS/voice2type-launcher"
+
 # Stop existing service
 if launchctl list 2>/dev/null | grep -q com.voice2type; then
     launchctl unload "$PLIST_DEST" 2>/dev/null || true
@@ -75,9 +82,7 @@ cat > "$PLIST_DEST" <<EOF
     <string>com.voice2type</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$PYTHON</string>
-        <string>-u</string>
-        <string>$INSTALL_DIR/voice2type.py</string>
+        <string>$LAUNCHER</string>
     </array>
     <key>WorkingDirectory</key>
     <string>$INSTALL_DIR</string>
@@ -101,18 +106,25 @@ EOF
 launchctl load "$PLIST_DEST"
 
 echo ""
-echo "Installed! voice2type will start on login."
-echo ""
+echo "Installed! voice2type starts on login."
 echo "First run downloads the whisper model (~150MB)."
 echo "Logs: tail -f $LOG_FILE"
 echo ""
-echo "IMPORTANT — grant these permissions in System Settings > Privacy & Security:"
-echo ""
-echo "  1. Accessibility:  Add $PYTHON"
-echo "     (Click +, press Cmd+Shift+G, paste the path)"
-echo ""
-echo "  2. Microphone:     Allow when prompted"
-echo ""
+
+# Open Accessibility settings and guide the user
+echo "Opening Accessibility settings..."
+open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+
+osascript -e "display dialog \"voice2type needs Accessibility permission to detect hotkeys.
+
+Steps:
+1. Click the + button (unlock if needed)
+2. Press Cmd+Shift+G and paste:
+   $INSTALL_DIR
+3. Select Voice2Type.app
+4. Make sure it is toggled ON\" with title \"Voice2Type Setup\" buttons {\"Done\"} default button \"Done\""
+
+echo "Setup complete! Hold Ctrl+Shift to record."
 echo "Config: $INSTALL_DIR/config.json"
 echo "Uninstall: $INSTALL_DIR/uninstall.sh"
 echo ""

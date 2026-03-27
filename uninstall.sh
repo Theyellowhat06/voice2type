@@ -25,6 +25,6 @@ fi
 
 echo ""
 echo "Done. You can also remove:"
-echo "  - Accessibility permission for Python in System Settings"
+echo "  - Voice2Type from Accessibility in System Settings"
 echo "  - Log file: ~/Library/Logs/voice2type.log"
 echo ""

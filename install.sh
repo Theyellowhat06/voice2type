@@ -1,30 +1,35 @@
 #!/bin/bash
-# Install voice2type as a login service (LaunchAgent)
+# Install voice2type locally
 
-set -e
+set -euo pipefail
 
 PROJECT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PLIST_NAME="com.voice2type.plist"
-PLIST_DEST="$HOME/Library/LaunchAgents/$PLIST_NAME"
+PLIST_DEST="$HOME/Library/LaunchAgents/com.voice2type.plist"
 LOG_FILE="$HOME/Library/Logs/voice2type.log"
-PYTHON="$PROJECT_DIR/.venv/bin/python"
+APP_DIR="$PROJECT_DIR/Voice2Type.app"
+LAUNCHER="$APP_DIR/Contents/MacOS/voice2type-launcher"
 
-echo "=== voice2type installer ==="
+echo ""
+echo "  voice2type installer"
 echo ""
 
-# Check venv exists
-if [ ! -f "$PYTHON" ]; then
-    echo "Virtual environment not found. Running setup first..."
+# Setup venv if needed
+if [ ! -f "$PROJECT_DIR/.venv/bin/python" ]; then
+    echo "Setting up virtual environment..."
     "$PROJECT_DIR/setup.sh"
 fi
 
-# Unload if already installed
+# Build .app if needed
+if [ ! -d "$APP_DIR" ]; then
+    "$PROJECT_DIR/build-app.sh"
+fi
+
+# Stop existing service
 if launchctl list 2>/dev/null | grep -q com.voice2type; then
-    echo "Stopping existing service..."
     launchctl unload "$PLIST_DEST" 2>/dev/null || true
 fi
 
-# Create LaunchAgent plist
+# Install LaunchAgent that runs the .app launcher
 mkdir -p "$HOME/Library/LaunchAgents"
 
 cat > "$PLIST_DEST" <<EOF
@@ -37,9 +42,7 @@ cat > "$PLIST_DEST" <<EOF
     <string>com.voice2type</string>
     <key>ProgramArguments</key>
     <array>
-        <string>$PYTHON</string>
-        <string>-u</string>
-        <string>$PROJECT_DIR/voice2type.py</string>
+        <string>$LAUNCHER</string>
     </array>
     <key>WorkingDirectory</key>
     <string>$PROJECT_DIR</string>
@@ -60,19 +63,30 @@ cat > "$PLIST_DEST" <<EOF
 </plist>
 EOF
 
-# Load the service
+# Start the service
 launchctl load "$PLIST_DEST"
 
+echo ""
 echo "Installed and started!"
+echo "Logs: tail -f $LOG_FILE"
 echo ""
-echo "Logs: $LOG_FILE"
-echo "  tail -f $LOG_FILE"
+
+# Prompt for Accessibility permission
+echo "Opening Accessibility settings..."
+echo "Please add Voice2Type.app to the list."
 echo ""
-echo "IMPORTANT: Grant Accessibility permission to:"
-echo "  $PYTHON"
-echo "  System Settings > Privacy & Security > Accessibility"
-echo "  (Click +, press Cmd+Shift+G, paste the path above)"
+
+open "x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"
+
+osascript -e "display dialog \"voice2type needs Accessibility permission to detect hotkeys.
+
+Steps:
+1. Click the + button (unlock if needed)
+2. Press Cmd+Shift+G and paste:
+   $PROJECT_DIR
+3. Select Voice2Type.app
+4. Make sure it is toggled ON\" with title \"Voice2Type Setup\" buttons {\"Done\"} default button \"Done\""
+
 echo ""
-echo "To stop:  launchctl unload $PLIST_DEST"
-echo "To start: launchctl load $PLIST_DEST"
+echo "Setup complete! Hold Ctrl+Shift to record."
 echo ""
